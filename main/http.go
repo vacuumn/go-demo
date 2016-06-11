@@ -1,19 +1,15 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net/http"
 )
 
 type Rabbit struct {
-	Name string
-	Body []byte
-}
-
-func (r *Rabbit) save() error {
-	filename := r.Name + ".txt"
-	return ioutil.WriteFile(filename, r.Body, 0600)
+	Name string `json:"name,omitempty"`
+	Body string `json:"description,omitempty"`
 }
 
 func load(name string) (*Rabbit, error) {
@@ -22,23 +18,26 @@ func load(name string) (*Rabbit, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Rabbit{Name: name, Body: body}, nil
+	return &Rabbit{Name: name, Body: string(body)}, nil
 }
 
-func viewHandler(w http.ResponseWriter, r *http.Request) {
-	title := r.URL.Path[len("/view/"):]
-	p, _ := load(title)
-	fmt.Fprintf(w, "<h1>%s</h1><div>%s</div>", p.Name, p.Body)
+func getRabbit(w http.ResponseWriter, r *http.Request) {
+	title := r.URL.Path[len("/rabbit/"):]
+	rabbit, _ := load(title)
+	writeJSON(rabbit, w)
 }
 
-func saveHandler(w http.ResponseWriter, r *http.Request) {
-	rabbit := &Rabbit{Name: "WhiteRabbit", Body: []byte("This is a normal rabbit. No Jokes.")}
-	rabbit.save()
-	fmt.Fprintf(w, "<h1>Saved!</h1>")
+func writeJSON(model interface{}, w http.ResponseWriter) {
+	JSON, err := json.Marshal(model)
+	if err != nil {
+		fmt.Fprintf(w, "Failed to marshal object to json: %v", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	w.Write(JSON)
 }
 
 func main() {
-	http.HandleFunc("/view/", viewHandler)
-	http.HandleFunc("/save/", saveHandler)
+	http.HandleFunc("/rabbit/", getRabbit)
 	http.ListenAndServe(":8080", nil)
 }
